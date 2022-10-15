@@ -84,13 +84,11 @@ function drawBase(ctx, config)
 
 function generateBar()
 {
-    start = Date.now();
+    start = Date.now() + (1 * 1000);;
     end = Date.now() + (5 * 1000);
     swimlane = 1;
     type = 1;
-    retval = JSON.parse('{"bars": [{"start": ' + start + ', "end": ' + end + ', "swimlane": ' + swimlane + ', "type": ' + type + '}]}');
-    console.log(retval);
-    return retval;
+    return JSON.parse('{"bars": [{"start": ' + start + ', "end": ' + end + ', "swimlane": ' + swimlane + ', "type": ' + type + '}]}');
 }
 
 function setSize() {
@@ -137,13 +135,13 @@ function drawFrame(ctx, config, state)
     });
 
     // Draw a vertical line where the mouse cursor is
-    if(cursor.x > 70 && cursor.x < cw && cursor.y < ch)
+    if(cursor.x > cwMin && cursor.x < cwMax && cursor.y < ch)
     {
+        document.getElementById("cursorlocation").innerHTML = cursor.x;
         drawLine(ctx, cursor.x, 0, cursor.x, ch - 1, cursorLineColor);
     }
 
     // Update debug table
-    document.getElementById("cursorlocation").innerHTML = cursor.x;
     document.getElementById("starttime").innerHTML = startTime;
     document.getElementById("endtime").innerHTML = endTime;
     document.getElementById("timescale").innerHTML = timeScale + " px/s";
