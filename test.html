@@ -2,11 +2,17 @@
     <head>
         <title>TrafficLightVis</title>
         <link rel="stylesheet" href="test.css" />
-        <script src="https://code.jquery.com/jquery-3.6.0.min.js" integrity="sha256-/xUj+3OJU5yExlq6GSYGSHk7tPXikynS7ogEvDej/m4=" crossorigin="anonymous"></script>
+        <!--<script src="https://code.jquery.com/jquery-3.6.0.min.js" integrity="sha256-/xUj+3OJU5yExlq6GSYGSHk7tPXikynS7ogEvDej/m4=" crossorigin="anonymous"></script>-->
         <script src="test.js"></script>
     </head>
     <body>
         <h1>TrafficLightVis</h1>
         <canvas id="vis" width="1000" height="600" style="border:1px solid #000000;"></canvas>
+        <table id="debug">
+            <tr><td>Start time</td><td id="starttime"></td><td>Time scale</td><td id="timescale"></td></tr>
+            <tr><td>End time</td><td id="endtime"></td><td>Max time in window</td><td id="maxtimeinwindow"></td></tr>
+            <tr><td>Cursor location</td><td id="cursorlocation"></td><td></td><td id=""></td></tr>
+            <tr><td></td><td id=""></td><td></td><td id=""></td></tr>
+        </table>
     </body>
 </html>

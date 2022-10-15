@@ -1,10 +1,20 @@
 let example = '{"signal_groups": [{"name": "A"},{"name": "B"},{"name": "C"},{"name": "D"},{"name": "_E"}],"detectors": [{"name": "A50"},{"name": "A0"},{"name": "B75"},{"name": "B30"},{"name": "B0"},{"name": "C30"},{"name": "C0"},{"name": "D110"},{"name": "D65"},{"name": "D0"},{"name": "PN_E"}],"inputs": [{"name": "IN1"}],"outputs": [{"name": "OUT1"}]}';
 const config =  JSON.parse(example);
 
-const cw = 1000;             // canvas width
+const cw = 1000;            // canvas width
 const ch = 600;             // canvas height
+const cwMin = 70;           // canvas width minimum (counting labels)
+const cwMax = cw;           // canvas width max
 const slSpacing = 30;       // swim lane spacing
 const abHeight = 20;        // active bar height
+
+const barColorGreen = "#00CC00";     // Permissive/Protected Movement Allowed
+const cursorLineColor = "#C0C0C0";
+
+var timeScale = 50;        // pixels per second
+var startTime = 0;
+var endTime = 0;
+var maxTimeInWindow = 0;
 
 const cursor =
 {
@@ -70,7 +80,17 @@ function drawBase(ctx, config)
         drawLine(ctx, 70, start_y + (slSpacing * (i + 1)), cw, start_y + (slSpacing * (i + 1)), "#BBBBBB");
         drawText(ctx, 60, start_y + (slSpacing * (i + 1)), config.detectors[i].name, "16px sans-serif");
     }
+}
 
+function generateBar()
+{
+    start = Date.now();
+    end = Date.now() + (5 * 1000);
+    swimlane = 1;
+    type = 1;
+    retval = JSON.parse('{"bars": [{"start": ' + start + ', "end": ' + end + ', "swimlane": ' + swimlane + ', "type": ' + type + '}]}');
+    console.log(retval);
+    return retval;
 }
 
 function setSize() {
@@ -78,23 +98,56 @@ function setSize() {
     cnvs.width = innerWidth;
 }
 
-function drawFrame(ctx, config)
+function drawFrame(ctx, config, state)
 {
+    // Update internal values
+    startTime = Date.now();
+    endTime = Date.now() - ((cwMax - cwMin) * timeScale * 1000);
+    maxTimeInWindow = ((cwMax - cwMin) / timeScale);
+
     //console.log("Draw frame")
     //console.log("Time now: " + Date.now())
     drawBase(ctx, config);
-    drawActiveBar(ctx, 2, 75, 225, "#00CC00");
-    drawActiveBar(ctx, 3, 100, 250, "#00CC00");
-    drawActiveBar(ctx, 3, 250, 270, "#e3c800");
-    drawActiveBar(ctx, 7, 400, 800, "#0057e3");
-    drawActiveBar(ctx, 11, 200, 550, "#0057e3");
-    drawActiveBar(ctx, 11, 180, 195, "#0057e3");
+    state["bars"].forEach(function(bar) {
+        if(bar["type"] == 1)
+        {
+            col = barColorGreen;
+        }
+        if(bar["start"] < startTime)
+        {
+            startX = cwMax - Math.round((((startTime - bar["start"]) / 1000) * timeScale))
+            if(bar["end"] < startTime)
+            {
+                endX = cwMax - Math.round((((startTime - bar["end"]) / 1000) * timeScale))
+            }
+            else
+            {
+                endX = cwMax;
+            }
+            if(startX < cwMin)
+            {
+                startX = cwMin;
+            }
+            if(endX < cwMin)
+            {
+                endX = cwMin;
+            }
+            drawActiveBar(ctx, bar["swimlane"], startX, endX, col);
+        }
+    });
 
     // Draw a vertical line where the mouse cursor is
     if(cursor.x > 70 && cursor.x < cw && cursor.y < ch)
     {
-        drawLine(ctx, cursor.x, 0, cursor.x, ch - 1, "#C0C0C0");
+        drawLine(ctx, cursor.x, 0, cursor.x, ch - 1, cursorLineColor);
     }
+
+    // Update debug table
+    document.getElementById("cursorlocation").innerHTML = cursor.x;
+    document.getElementById("starttime").innerHTML = startTime;
+    document.getElementById("endtime").innerHTML = endTime;
+    document.getElementById("timescale").innerHTML = timeScale + " px/s";
+    document.getElementById("maxtimeinwindow").innerHTML = maxTimeInWindow + " s";
 }
 
 addEventListener("mousemove", (e) =>
@@ -106,6 +159,6 @@ addEventListener("mousemove", (e) =>
 window.onload = function() {
     const cnvs = document.getElementById("vis");
     const ctx = cnvs.getContext("2d");
-    setInterval(drawFrame, 50, ctx, config);
+    setInterval(drawFrame, 33, ctx, config, generateBar());
     //drawFrame(ctx, config);
 };
