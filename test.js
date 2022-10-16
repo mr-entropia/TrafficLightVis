@@ -1,5 +1,6 @@
 let example = '{"signal_groups": [{"name": "A"},{"name": "B"},{"name": "C"},{"name": "D"},{"name": "_E"}],"detectors": [{"name": "A50"},{"name": "A0"},{"name": "B75"},{"name": "B30"},{"name": "B0"},{"name": "C30"},{"name": "C0"},{"name": "D110"},{"name": "D65"},{"name": "D0"},{"name": "PN_E"}],"inputs": [{"name": "IN1"}],"outputs": [{"name": "OUT1"}]}';
 const config =  JSON.parse(example);
+var cnvs = 0;
 
 const cw = 1000;            // canvas width
 const ch = 600;             // canvas height
@@ -25,7 +26,6 @@ const cursor =
 function clearCanvas(ctx)
 {
     ctx.save();
-    //ctx.globalCompositeOperation = "destination-over";
     ctx.clearRect(0, 0, cw, ch);
     ctx.restore();
 }
@@ -62,7 +62,6 @@ function drawText(ctx, x, y, text, font)
 
 function drawBase(ctx, config)
 {
-    //console.log("Draw base")
     clearCanvas(ctx);
 
     // Draw swim lanes for signal groups
@@ -72,28 +71,55 @@ function drawBase(ctx, config)
         drawText(ctx, 60, (slSpacing * (i + 1)), config.signal_groups[i].name, "20px sans-serif");
     }
 
-    start_y = (config.signal_groups.length + 1) * slSpacing;
-
     // Draw swim lanes for detectors
-    for(let i = 0; i < config.detectors.length; i++)
+    //start_y = (config.signal_groups.length + 1) * slSpacing;
+    start_y = 0;
+    j = 0;
+    for(let i = config.signal_groups.length; i < config.signal_groups.length + config.detectors.length; i++)
     {
         drawLine(ctx, 70, start_y + (slSpacing * (i + 1)), cw, start_y + (slSpacing * (i + 1)), "#BBBBBB");
-        drawText(ctx, 60, start_y + (slSpacing * (i + 1)), config.detectors[i].name, "16px sans-serif");
+        drawText(ctx, 60, start_y + (slSpacing * (i + 1)), config.detectors[j].name, "16px sans-serif");
+        j++;
     }
+}
+
+function drawTooltip(ctx, x, y, text)
+{
+    ctx.save();
+    ctx.globalAlpha = 0.25;
+    ctx.fillStyle = "#000000";
+    ctx.fillRect(x, y, 200, 30);
+    ctx.globalAlpha = 1.0;
+    ctx.restore();
 }
 
 function generateBar()
 {
-    start = Date.now() + (1 * 1000);;
-    end = Date.now() + (5 * 1000);
+    start = Date.now() + (1 * 1000);
+    end = Date.now() - (5 * 1000);
+    start2 = Date.now() + (3.5 * 1000);
+    end2 = Date.now() + (2 * 1000);
     swimlane = 1;
     type = 1;
-    return JSON.parse('{"bars": [{"start": ' + start + ', "end": ' + end + ', "swimlane": ' + swimlane + ', "type": ' + type + '}]}');
+    return JSON.parse('{"bars": [{"start": ' + start + ', "end": ' + end + ', "swimlane": ' + swimlane + ', "type": ' + type + '},{"start": ' + start2 + ', "end": ' + end2 + ', "swimlane": ' + 2 + ', "type": ' + type + '}]}');
 }
 
-function setSize() {
-    cnvs.height = innerHeight;
-    cnvs.width = innerWidth;
+function increaseTimeScale()
+{
+    timeScale += 10;
+    if(timeScale >= 150)
+    {
+        timeScale = 150;
+    }
+}
+
+function decreaseTimeScale()
+{
+    timeScale -= 10;
+    if(timeScale <= 10)
+    {
+        timeScale = 10;
+    }
 }
 
 function drawFrame(ctx, config, state)
@@ -103,8 +129,7 @@ function drawFrame(ctx, config, state)
     endTime = Date.now() - ((cwMax - cwMin) * timeScale * 1000);
     maxTimeInWindow = ((cwMax - cwMin) / timeScale);
 
-    //console.log("Draw frame")
-    //console.log("Time now: " + Date.now())
+    // Draw view
     drawBase(ctx, config);
     state["bars"].forEach(function(bar) {
         if(bar["type"] == 1)
@@ -131,14 +156,20 @@ function drawFrame(ctx, config, state)
                 endX = cwMin;
             }
             drawActiveBar(ctx, bar["swimlane"], startX, endX, col);
+            if(getCursorViewPosition().ypos == bar["swimlane"] && cursor.x < startX && cursor.x > endX)
+            {
+                drawTooltip(ctx, cursor.x + 10, cursor.y + 10, "Over a bar");
+            }
         }
     });
 
     // Draw a vertical line where the mouse cursor is
     if(cursor.x > cwMin && cursor.x < cwMax && cursor.y < ch)
     {
-        document.getElementById("cursorlocation").innerHTML = cursor.x;
-        drawLine(ctx, cursor.x, 0, cursor.x, ch - 1, cursorLineColor);
+        curpos = getCursorViewPosition();
+        document.getElementById("cursorlocation").innerHTML = cursor.x + " / " + curpos.xpos + " x " + curpos.ypos;
+        drawLine(ctx, cursor.x, 0, cursor.x, cw - 1, cursorLineColor);
+        drawLine(ctx, cwMin, cursor.y, cwMax - 1, cursor.y, cursorLineColor);
     }
 
     // Update debug table
@@ -148,15 +179,33 @@ function drawFrame(ctx, config, state)
     document.getElementById("maxtimeinwindow").innerHTML = maxTimeInWindow + " s";
 }
 
+function getCursorViewPosition()
+{
+    // xpos returns time inside view
+    // ypos returns swimlane index
+    xpos = (cursor.x - cwMin) / (cwMax - cwMin) * (startTime - endTime) + endTime;
+    ypos = 0;
+    for(let i = 0; i < 20; i++)
+    {
+        testpos = Math.abs(cursor.y - (slSpacing * (i)));
+        if(testpos < 15)
+        {
+            ypos = i;
+        }
+    }
+    return { 'xpos': xpos, 'ypos': ypos };
+}
+
 addEventListener("mousemove", (e) =>
 {
-    cursor.x = e.clientX;
-    cursor.y = e.clientY;
+    cursor.x = e.clientX - cnvs.getBoundingClientRect().left;
+    cursor.y = e.clientY - cnvs.getBoundingClientRect().top;
 });
 
 window.onload = function() {
-    const cnvs = document.getElementById("vis");
+    cnvs = document.getElementById("vis");
     const ctx = cnvs.getContext("2d");
+    document.getElementById("inc-timescale").onclick = increaseTimeScale;
+    document.getElementById("dec-timescale").onclick = decreaseTimeScale;
     setInterval(drawFrame, 33, ctx, config, generateBar());
-    //drawFrame(ctx, config);
 };
