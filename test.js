@@ -1,18 +1,20 @@
 let example = '{"signal_groups": [{"name": "A"},{"name": "B"},{"name": "C"},{"name": "D"},{"name": "_E"}],"detectors": [{"name": "A50"},{"name": "A0"},{"name": "B75"},{"name": "B30"},{"name": "B0"},{"name": "C30"},{"name": "C0"},{"name": "D110"},{"name": "D65"},{"name": "D0"},{"name": "PN_E"}],"inputs": [{"name": "IN1"}],"outputs": [{"name": "OUT1"}]}';
 const config =  JSON.parse(example);
-var cnvs = 0;
+var state = 0;
 
+var cnvs = 0;               // global canvas
 const cw = 1000;            // canvas width
 const ch = 600;             // canvas height
 const cwMin = 70;           // canvas width minimum (counting labels)
 const cwMax = cw;           // canvas width max
 const slSpacing = 30;       // swim lane spacing
 const abHeight = 20;        // active bar height
+const req = new XMLHttpRequest();
 
 const barColorGreen = "#00CC00";     // Permissive/Protected Movement Allowed
 const cursorLineColor = "#C0C0C0";
 
-var timeScale = 50;        // pixels per second
+var timeScale = 20;        // pixels per second
 var startTime = 0;
 var endTime = 0;
 var maxTimeInWindow = 0;
@@ -86,10 +88,15 @@ function drawBase(ctx, config)
 function drawTooltip(ctx, x, y, text)
 {
     ctx.save();
-    ctx.globalAlpha = 0.25;
+    ctx.font = "18px sans-serif";
+    ctx.textBaseline = "top";
+    textmetrics = ctx.measureText(text);
+    ctx.globalAlpha = 0.1;
     ctx.fillStyle = "#000000";
-    ctx.fillRect(x, y, 200, 30);
+    ctx.fillRect(x, y, textmetrics.width + 10, 30);
     ctx.globalAlpha = 1.0;
+    ctx.fillStyle = "#222222";
+    ctx.fillText(text, x + 5, y + 5);
     ctx.restore();
 }
 
@@ -101,7 +108,7 @@ function generateBar()
     end2 = Date.now() + (2 * 1000);
     swimlane = 1;
     type = 1;
-    return JSON.parse('{"bars": [{"start": ' + start + ', "end": ' + end + ', "swimlane": ' + swimlane + ', "type": ' + type + '},{"start": ' + start2 + ', "end": ' + end2 + ', "swimlane": ' + 2 + ', "type": ' + type + '}]}');
+    return JSON.parse('{"bars": [{"name": "A", "start": ' + start + ', "end": ' + end + ', "swimlane": ' + swimlane + ', "type": ' + type + '},{"name": "B", "start": ' + start2 + ', "end": ' + end2 + ', "swimlane": ' + 2 + ', "type": ' + type + '}]}');
 }
 
 function increaseTimeScale()
@@ -158,7 +165,7 @@ function drawFrame(ctx, config, state)
             drawActiveBar(ctx, bar["swimlane"], startX, endX, col);
             if(getCursorViewPosition().ypos == bar["swimlane"] && cursor.x < startX && cursor.x > endX)
             {
-                drawTooltip(ctx, cursor.x + 10, cursor.y + 10, "Over a bar");
+                drawTooltip(ctx, cursor.x + 10, cursor.y + 10, "Signal group " + bar["name"]);
             }
         }
     });
@@ -177,6 +184,17 @@ function drawFrame(ctx, config, state)
     document.getElementById("endtime").innerHTML = endTime;
     document.getElementById("timescale").innerHTML = timeScale + " px/s";
     document.getElementById("maxtimeinwindow").innerHTML = maxTimeInWindow + " s";
+}
+
+function updateState()
+{
+    console.log(this.responseText);
+}
+
+function periodicUpdateState()
+{
+    req.open("GET", "https://example.com/");
+    req.send();
 }
 
 function getCursorViewPosition()
@@ -205,7 +223,9 @@ addEventListener("mousemove", (e) =>
 window.onload = function() {
     cnvs = document.getElementById("vis");
     const ctx = cnvs.getContext("2d");
+    req.addEventListener("load", updateState);
     document.getElementById("inc-timescale").onclick = increaseTimeScale;
     document.getElementById("dec-timescale").onclick = decreaseTimeScale;
     setInterval(drawFrame, 33, ctx, config, generateBar());
+    periodicUpdateState();
 };
