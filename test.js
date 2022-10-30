@@ -11,8 +11,9 @@ const slSpacing = 30;       // swim lane spacing
 const abHeight = 20;        // active bar height
 const req = new XMLHttpRequest();
 
-const barColorGreen = "#00CC00";     // Permissive/Protected Movement Allowed
-const cursorLineColor = "#C0C0C0";
+const barColorGreen = "#00cc00";     // Permissive/Protected Movement Allowed
+const barColorAmber = "#edad18";     // Permissive/Protected Movement Allowed
+const cursorLineColor = "#c0c0c0";
 
 var timeScale = 20;        // pixels per second
 var startTime = 0;
@@ -87,6 +88,8 @@ function drawBase(ctx, config)
 
 function drawTooltip(ctx, x, y, text)
 {
+    // Draw a floating tooltip bottom-right of the cursor position
+    // with custom text
     ctx.save();
     ctx.font = "18px sans-serif";
     ctx.textBaseline = "top";
@@ -104,11 +107,11 @@ function generateBar()
 {
     start = Date.now() + (1 * 1000);
     end = Date.now() - (5 * 1000);
-    start2 = Date.now() + (3.5 * 1000);
-    end2 = Date.now() + (2 * 1000);
+    start2 = Date.now() - 1;
+    end2 = Date.now() + (10 * 1000);
     swimlane = 1;
     type = 1;
-    return JSON.parse('{"bars": [{"name": "A", "start": ' + start + ', "end": ' + end + ', "swimlane": ' + swimlane + ', "type": ' + type + '},{"name": "B", "start": ' + start2 + ', "end": ' + end2 + ', "swimlane": ' + 2 + ', "type": ' + type + '}]}');
+    return JSON.parse('{"bars": [{"name": "A green", "start": ' + start + ', "end": ' + end + ', "swimlane": ' + swimlane + ', "type": ' + type + '},{"name": "A amber", "start": ' + start2 + ', "end": ' + end2 + ', "swimlane": ' + 1 + ', "type": ' + 2 + '}]}');
 }
 
 function increaseTimeScale()
@@ -143,7 +146,11 @@ function drawFrame(ctx, config, state)
         {
             col = barColorGreen;
         }
-        if(bar["start"] < startTime)
+        if(bar["type"] == 2)
+        {
+            col = barColorAmber;
+        }
+        if(bar["start"] <= startTime)
         {
             startX = cwMax - Math.round((((startTime - bar["start"]) / 1000) * timeScale))
             if(bar["end"] < startTime)
@@ -154,17 +161,18 @@ function drawFrame(ctx, config, state)
             {
                 endX = cwMax;
             }
-            if(startX < cwMin)
+            if(startX <= cwMin)
             {
                 startX = cwMin;
             }
-            if(endX < cwMin)
+            if(endX <= cwMin)
             {
                 endX = cwMin;
             }
             drawActiveBar(ctx, bar["swimlane"], startX, endX, col);
-            if(getCursorViewPosition().ypos == bar["swimlane"] && cursor.x < startX && cursor.x > endX)
+            if(getCursorViewPosition().ypos == bar["swimlane"] && cursor.x <= startX && cursor.x >= endX)
             {
+                console.log("startX: " + startX + " endX: " + endX + " sg: " + bar["name"])
                 drawTooltip(ctx, cursor.x + 10, cursor.y + 10, "Signal group " + bar["name"]);
             }
         }
@@ -179,11 +187,23 @@ function drawFrame(ctx, config, state)
         drawLine(ctx, cwMin, cursor.y, cwMax - 1, cursor.y, cursorLineColor);
     }
 
+    // Update state table
+    document.getElementById("statecontents").innerHTML = "";
+    state["bars"].forEach(function(bar) {
+        document.getElementById("statecontents").innerHTML += "<tr><td>" + bar["name"] + "</td><td>" + typeToString(bar["type"]) + "</td><td>" + bar["start"] + "</td><td>" + bar["end"] + "</td><td>" + bar["swimlane"] + "</td>"
+    });
+
     // Update debug table
     document.getElementById("starttime").innerHTML = startTime;
     document.getElementById("endtime").innerHTML = endTime;
     document.getElementById("timescale").innerHTML = timeScale + " px/s";
     document.getElementById("maxtimeinwindow").innerHTML = maxTimeInWindow + " s";
+}
+
+function typeToString(type)
+{
+    if(type == 1) return "Green";
+    if(type == 2) return "Amber";
 }
 
 function updateState()
@@ -221,11 +241,18 @@ addEventListener("mousemove", (e) =>
 });
 
 window.onload = function() {
+    // Get canvas and its context
     cnvs = document.getElementById("vis");
     const ctx = cnvs.getContext("2d");
+
+    // Set up XHR
     req.addEventListener("load", updateState);
+
+    // Bind timescale inc/dec buttons to their functions
     document.getElementById("inc-timescale").onclick = increaseTimeScale;
     document.getElementById("dec-timescale").onclick = decreaseTimeScale;
-    setInterval(drawFrame, 33, ctx, config, generateBar());
+
+    // Set up interval functions such as drawing and updating state object
+    setInterval(drawFrame, 100, ctx, config, generateBar());
     periodicUpdateState();
 };
