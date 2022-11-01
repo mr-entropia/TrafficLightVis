@@ -1,8 +1,11 @@
-let example = '{"signal_groups": [{"name": "A"},{"name": "B"},{"name": "C"},{"name": "D"},{"name": "_E"}],"detectors": [{"name": "A50"},{"name": "A0"},{"name": "B75"},{"name": "B30"},{"name": "B0"},{"name": "C30"},{"name": "C0"},{"name": "D110"},{"name": "D65"},{"name": "D0"},{"name": "PN_E"}],"inputs": [{"name": "IN1"}],"outputs": [{"name": "OUT1"}]}';
-const config =  JSON.parse(example);
-var state = 0;
+var setupURL = "http://127.0.0.1:11580/vis/setup/TESTINT1"
+var stateURL = "http://127.0.0.1:11580/vis/state/TESTINT1"
 
+
+var config = "";
+var state = "";
 var cnvs = 0;               // global canvas
+var errorCounter = 0;       // XHR load errors
 const cw = 1000;            // canvas width
 const ch = 600;             // canvas height
 const cwMin = 70;           // canvas width minimum (counting labels)
@@ -11,14 +14,17 @@ const slSpacing = 30;       // swim lane spacing
 const abHeight = 20;        // active bar height
 const req = new XMLHttpRequest();
 
+const barColorRed = "#bb0000";              // Stop and Remain / Stop then Proceed
 const barColorGreen = "#00cc00";     // Permissive/Protected Movement Allowed
-const barColorAmber = "#edad18";     // Permissive/Protected Movement Allowed
+const barColorAmber = "#edad18";     // Permissive/Protected Clearance
 const cursorLineColor = "#c0c0c0";
 
 var timeScale = 20;        // pixels per second
 var startTime = 0;
 var endTime = 0;
 var maxTimeInWindow = 0;
+
+var programPhase = 0;
 
 const cursor =
 {
@@ -70,7 +76,7 @@ function drawBase(ctx, config)
     // Draw swim lanes for signal groups
     for(let i = 0; i < config.signal_groups.length; i++)
     {
-        drawLine(ctx, 70, (slSpacing * (i + 1)), cw, (slSpacing * (i + 1)), "#BB0000");
+        drawLine(ctx, 70, (slSpacing * (i + 1)), cw, (slSpacing * (i + 1)), barColorRed);
         drawText(ctx, 60, (slSpacing * (i + 1)), config.signal_groups[i].name, "20px sans-serif");
     }
 
@@ -110,8 +116,8 @@ function generateBar()
     start2 = Date.now() - 1;
     end2 = Date.now() + (10 * 1000);
     swimlane = 1;
-    type = 1;
-    return JSON.parse('{"bars": [{"name": "A green", "start": ' + start + ', "end": ' + end + ', "swimlane": ' + swimlane + ', "type": ' + type + '},{"name": "A amber", "start": ' + start2 + ', "end": ' + end2 + ', "swimlane": ' + 1 + ', "type": ' + 2 + '}]}');
+    type = 5;
+    return JSON.parse('{"bars": [{"name": "A", "start": ' + start + ', "end": ' + end + ', "swimlane": ' + swimlane + ', "type": ' + type + '},{"name": "A", "start": ' + start2 + ', "end": ' + end2 + ', "swimlane": ' + 1 + ', "type": ' + 7 + '}]}');
 }
 
 function increaseTimeScale()
@@ -142,11 +148,11 @@ function drawFrame(ctx, config, state)
     // Draw view
     drawBase(ctx, config);
     state["bars"].forEach(function(bar) {
-        if(bar["type"] == 1)
+        if(bar["type"] == 5 || bar["type"] == 6)
         {
             col = barColorGreen;
         }
-        if(bar["type"] == 2)
+        if(bar["type"] == 7 || bar["type"] == 8)
         {
             col = barColorAmber;
         }
@@ -172,7 +178,6 @@ function drawFrame(ctx, config, state)
             drawActiveBar(ctx, bar["swimlane"], startX, endX, col);
             if(getCursorViewPosition().ypos == bar["swimlane"] && cursor.x <= startX && cursor.x >= endX)
             {
-                console.log("startX: " + startX + " endX: " + endX + " sg: " + bar["name"])
                 drawTooltip(ctx, cursor.x + 10, cursor.y + 10, "Signal group " + bar["name"]);
             }
         }
@@ -187,10 +192,16 @@ function drawFrame(ctx, config, state)
         drawLine(ctx, cwMin, cursor.y, cwMax - 1, cursor.y, cursorLineColor);
     }
 
+    // XHR load error tracking
+    if(errorCounter > 5)
+    {
+        drawText(ctx, (cw / 2) + (cw / 4), 100, "Error loading state! Stale data!", "36px sans-serif");
+    }
+
     // Update state table
     document.getElementById("statecontents").innerHTML = "";
     state["bars"].forEach(function(bar) {
-        document.getElementById("statecontents").innerHTML += "<tr><td>" + bar["name"] + "</td><td>" + typeToString(bar["type"]) + "</td><td>" + bar["start"] + "</td><td>" + bar["end"] + "</td><td>" + bar["swimlane"] + "</td>"
+        document.getElementById("statecontents").innerHTML += "<tr><td>" + bar["name"] + "</td><td>" + SG(bar["type"]) + "</td><td>" + bar["start"] + "</td><td>" + bar["end"] + "</td><td>" + bar["swimlane"] + "</td>"
     });
 
     // Update debug table
@@ -198,22 +209,73 @@ function drawFrame(ctx, config, state)
     document.getElementById("endtime").innerHTML = endTime;
     document.getElementById("timescale").innerHTML = timeScale + " px/s";
     document.getElementById("maxtimeinwindow").innerHTML = maxTimeInWindow + " s";
+    document.getElementById("programphase").innerHTML = programPhase;
 }
 
-function typeToString(type)
+/* SG state to string */
+function SG(state)
 {
-    if(type == 1) return "Green";
-    if(type == 2) return "Amber";
+    if(state == 0) { return "Unavailable"; }
+    if(state == 1) { return "Dark"; }
+    if(state == 2) { return "StopThenProceed"; }
+    if(state == 3) { return "StopAndRemain"; }
+    if(state == 4) { return "PreMovement"; }
+    if(state == 5) { return "PermissiveMovementAllowed"; }
+    if(state == 6) { return "ProtectedMovementAllowed"; }
+    if(state == 7) { return "PermissiveClearance"; }
+    if(state == 8) { return "ProtectedClearance"; }
+    if(state == 9) { return "CautionConflictingTraffic"; }
+    if(state == 10) { return "PermissiveMovementPreClearance"; }
+    if(state == 11) { return "ProtectedMovementPreClearance"; }
+    return "Unknown (" + state + ")"
 }
 
-function updateState()
+function updateState(e)
 {
-    console.log(this.responseText);
+    const ctx = cnvs.getContext("2d");
+    if(e.type == "error" && programPhase == 0)
+    {
+        drawText(ctx, (cw / 2) + (cw / 6), 100, "Unable to load setup!", "36px sans-serif");
+    }
+    else if(e.type == "error" && programPhase > 0)
+    {
+        errorCounter++;
+    }
+    else
+    {
+        if(programPhase == 0)
+        {
+            console.log("Received setup JSON object");
+            config = JSON.parse(this.responseText);
+            programPhase++;
+            periodicUpdateState();
+        }
+        else if(programPhase == 1)
+        {
+            state = JSON.parse(this.responseText);
+            console.log("Received first state JSON object");
+            // Set up interval functions such as drawing and updating state object
+            setInterval(drawFrame, 33, ctx, config, generateBar());        
+            setInterval(periodicUpdateState, 1000);
+            programPhase++;
+        }
+        else if(programPhase == 2)
+        {
+            state = JSON.parse(this.responseText);
+            errorCounter = 0;
+        }
+    }
+}
+
+function getSetup()
+{
+    req.open("GET", setupURL);
+    req.send();
 }
 
 function periodicUpdateState()
 {
-    req.open("GET", "https://example.com/");
+    req.open("GET", stateURL);
     req.send();
 }
 
@@ -247,12 +309,12 @@ window.onload = function() {
 
     // Set up XHR
     req.addEventListener("load", updateState);
+    req.addEventListener("error", updateState);
 
     // Bind timescale inc/dec buttons to their functions
     document.getElementById("inc-timescale").onclick = increaseTimeScale;
     document.getElementById("dec-timescale").onclick = decreaseTimeScale;
 
-    // Set up interval functions such as drawing and updating state object
-    setInterval(drawFrame, 100, ctx, config, generateBar());
-    periodicUpdateState();
+    // Start the ball rolling
+    getSetup();
 };
