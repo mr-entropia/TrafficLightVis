@@ -15,8 +15,9 @@ const abHeight = 20;        // active bar height
 const req = new XMLHttpRequest();
 
 const barColorRed = "#bb0000";              // Stop and Remain / Stop then Proceed
-const barColorGreen = "#00cc00";     // Permissive/Protected Movement Allowed
-const barColorAmber = "#edad18";     // Permissive/Protected Clearance
+const barColorGreen = "#00cc00";            // Permissive/Protected Movement Allowed
+const barColorAmber = "#edad18";            // Permissive/Protected Clearance
+const barColorGray = "#f0f0f0";             // Unknown state
 const cursorLineColor = "#c0c0c0";
 
 var timeScale = 20;        // pixels per second
@@ -138,7 +139,7 @@ function decreaseTimeScale()
     }
 }
 
-function drawFrame(ctx, config, state)
+function drawFrame(ctx, config)
 {
     // Update internal values
     startTime = Date.now();
@@ -152,9 +153,13 @@ function drawFrame(ctx, config, state)
         {
             col = barColorGreen;
         }
-        if(bar["type"] == 7 || bar["type"] == 8)
+        else if(bar["type"] == 7 || bar["type"] == 8)
         {
             col = barColorAmber;
+        }
+        else
+        {
+            col = barColorGray;
         }
         if(bar["start"] <= startTime)
         {
@@ -201,7 +206,8 @@ function drawFrame(ctx, config, state)
     // Update state table
     document.getElementById("statecontents").innerHTML = "";
     state["bars"].forEach(function(bar) {
-        document.getElementById("statecontents").innerHTML += "<tr><td>" + bar["name"] + "</td><td>" + SG(bar["type"]) + "</td><td>" + bar["start"] + "</td><td>" + bar["end"] + "</td><td>" + bar["swimlane"] + "</td>"
+        swimlane = getSwimlaneForItem(bar["name"])
+        document.getElementById("statecontents").innerHTML += "<tr><td>" + bar["name"] + "</td><td>" + SG(bar["type"]) + "</td><td>" + bar["start"] + " (" + (startTime - bar["start"]) + ")</td><td>" + bar["end"] + " (" + (startTime - bar["end"]) + ")</td><td>" + swimlane + "</td>"
     });
 
     // Update debug table
@@ -210,6 +216,18 @@ function drawFrame(ctx, config, state)
     document.getElementById("timescale").innerHTML = timeScale + " px/s";
     document.getElementById("maxtimeinwindow").innerHTML = maxTimeInWindow + " s";
     document.getElementById("programphase").innerHTML = programPhase;
+}
+
+function getSwimlaneForItem(name)
+{
+    for(let i = 0; i < config.signal_groups.length; i++)
+    {
+        if(config.signal_groups[i].name == name)
+        {
+            return i + 1;
+        }
+    }
+    return -1;
 }
 
 /* SG state to string */
@@ -255,7 +273,7 @@ function updateState(e)
             state = JSON.parse(this.responseText);
             console.log("Received first state JSON object");
             // Set up interval functions such as drawing and updating state object
-            setInterval(drawFrame, 33, ctx, config, generateBar());        
+            setInterval(drawFrame, 66, ctx, config);        
             setInterval(periodicUpdateState, 1000);
             programPhase++;
         }
