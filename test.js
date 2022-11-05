@@ -143,7 +143,7 @@ function drawFrame(ctx, config)
 {
     // Update internal values
     startTime = Date.now();
-    endTime = Date.now() - ((cwMax - cwMin) * timeScale * 1000);
+    endTime = Date.now() - ((cwMax - cwMin) * timeScale); // * 1000);
     maxTimeInWindow = ((cwMax - cwMin) / timeScale);
 
     // Draw view
@@ -192,7 +192,7 @@ function drawFrame(ctx, config)
     if(cursor.x > cwMin && cursor.x < cwMax && cursor.y < ch)
     {
         curpos = getCursorViewPosition();
-        document.getElementById("cursorlocation").innerHTML = cursor.x + " / " + curpos.xpos + " x " + curpos.ypos;
+        document.getElementById("cursorlocation").innerHTML = cursor.x + " / " + formatUXTime(curpos.xpos) + " x " + curpos.ypos;
         drawLine(ctx, cursor.x, 0, cursor.x, cw - 1, cursorLineColor);
         drawLine(ctx, cwMin, cursor.y, cwMax - 1, cursor.y, cursorLineColor);
     }
@@ -206,16 +206,24 @@ function drawFrame(ctx, config)
     // Update state table
     document.getElementById("statecontents").innerHTML = "";
     state["bars"].forEach(function(bar) {
-        swimlane = getSwimlaneForItem(bar["name"])
-        document.getElementById("statecontents").innerHTML += "<tr><td>" + bar["name"] + "</td><td>" + SG(bar["type"]) + "</td><td>" + bar["start"] + " (" + (startTime - bar["start"]) + ")</td><td>" + bar["end"] + " (" + (startTime - bar["end"]) + ")</td><td>" + swimlane + "</td>"
+        duration = (bar["end"] - bar["start"]) / 1000;
+        document.getElementById("statecontents").innerHTML += "<tr><td>" + bar["name"] + "</td><td>" + SG(bar["type"]) + "</td><td>" + formatUXTime(bar["start"]) + "</td><td>" + formatUXTime(bar["end"]) + "</td><td>" + duration + "</td>"
     });
 
     // Update debug table
-    document.getElementById("starttime").innerHTML = startTime;
-    document.getElementById("endtime").innerHTML = endTime;
+    document.getElementById("starttime").innerHTML = formatUXTime(startTime);
+    document.getElementById("endtime").innerHTML = formatUXTime(endTime);
     document.getElementById("timescale").innerHTML = timeScale + " px/s";
     document.getElementById("maxtimeinwindow").innerHTML = maxTimeInWindow + " s";
     document.getElementById("programphase").innerHTML = programPhase;
+}
+
+function formatUXTime(uxtime)
+{
+    const tzOffset = (1000 * 60 * 60 * 2);  // hack, UTC+2
+    var newDate = new Date();
+    newDate.setTime(uxtime + tzOffset);
+    return newDate.toUTCString();
 }
 
 function getSwimlaneForItem(name)
