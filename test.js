@@ -16,8 +16,9 @@ const req = new XMLHttpRequest();
 
 const barColorRed = "#bb0000";              // Stop and Remain / Stop then Proceed
 const barColorGreen = "#00cc00";            // Permissive/Protected Movement Allowed
-const barColorAmber = "#edad18";            // Permissive/Protected Clearance
-const barColorGray = "#f0f0f0";             // Unknown state
+const barColorAmber = "#ecf013";            // Permissive/Protected Clearance
+const barColorRedAmber = "#edad18";         // PreMovement
+const barColorGray = "#a0a0a0";             // Unknown state
 const cursorLineColor = "#c0c0c0";
 
 var timeScale = 20;        // pixels per second
@@ -112,6 +113,7 @@ function drawTooltip(ctx, x, y, text)
 
 function generateBar()
 {
+    // FOR DEBUG PURPOSES
     start = Date.now() + (1 * 1000);
     end = Date.now() - (5 * 1000);
     start2 = Date.now() - 1;
@@ -142,14 +144,29 @@ function decreaseTimeScale()
 function drawFrame(ctx, config)
 {
     // Update internal values
-    startTime = Date.now();
-    endTime = Date.now() - ((cwMax - cwMin) * timeScale); // * 1000);
+    startTime = Date.now() - ((cwMax - cwMin) * timeScale);
+    endTime = Date.now();
     maxTimeInWindow = ((cwMax - cwMin) / timeScale);
 
     // Draw view
     drawBase(ctx, config);
+
+    // Draw bars
     state["bars"].forEach(function(bar) {
-        if(bar["type"] == 5 || bar["type"] == 6)
+        var doNotDraw = false;
+        if(bar["type"] == 0 || bar["type"] == 1)
+        {
+            col = barColorGray;
+        }
+        else if(bar["type"] == 2 || bar["type"] == 3)
+        {
+            doNotDraw = true;
+        }
+        else if(bar["type"] == 4)
+        {
+            col = barColorRedAmber;
+        }
+        else if(bar["type"] == 5 || bar["type"] == 6)
         {
             col = barColorGreen;
         }
@@ -161,12 +178,12 @@ function drawFrame(ctx, config)
         {
             col = barColorGray;
         }
-        if(bar["start"] <= startTime)
+        if(bar["start"] <= endTime)
         {
-            startX = cwMax - Math.round((((startTime - bar["start"]) / 1000) * timeScale))
+            startX = cwMax - Math.round((((endTime - bar["start"]) / 1000) * timeScale))
             if(bar["end"] < startTime)
             {
-                endX = cwMax - Math.round((((startTime - bar["end"]) / 1000) * timeScale))
+                endX = cwMax - Math.round((((endTime - bar["end"]) / 1000) * timeScale))
             }
             else
             {
@@ -180,10 +197,16 @@ function drawFrame(ctx, config)
             {
                 endX = cwMin;
             }
-            drawActiveBar(ctx, bar["swimlane"], startX, endX, col);
-            if(getCursorViewPosition().ypos == bar["swimlane"] && cursor.x <= startX && cursor.x >= endX)
+
+            if(!doNotDraw)
             {
-                drawTooltip(ctx, cursor.x + 10, cursor.y + 10, "Signal group " + bar["name"]);
+                drawActiveBar(ctx, getSwimlaneForItem(bar["name"]), startX, endX, col);
+            }
+
+            if(getCursorViewPosition().ypos == getSwimlaneForItem(bar["name"]) && cursor.x >= startX && cursor.x <= endX)
+            {
+                duration = (bar["end"] - bar["start"]) / 1000;
+                drawTooltip(ctx, cursor.x + 10, cursor.y + 10, "Signal group " + bar["name"] + " (" + SG(bar["type"]) + " for " + duration + " s)");
             }
         }
     });
@@ -280,8 +303,9 @@ function updateState(e)
         {
             state = JSON.parse(this.responseText);
             console.log("Received first state JSON object");
+
             // Set up interval functions such as drawing and updating state object
-            setInterval(drawFrame, 66, ctx, config);        
+            setInterval(drawFrame, 33, ctx, config);        
             setInterval(periodicUpdateState, 1000);
             programPhase++;
         }
