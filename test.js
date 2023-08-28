@@ -1,38 +1,47 @@
+// User-configurable features
 var setupURL = "http://127.0.0.1:11580/vis/setup/TESTINT1"
 var stateURL = "http://127.0.0.1:11580/vis/state/TESTINT1"
+var debugEnable = false;
 
-
-var config = "";
-var state = "";
-var cnvs = 0;               // global canvas
+// Don't touch beyond here
+var config = "";            // JSON object placeholder
+var state = "";             // JSON object placeholder
+var cnvs = 0;               // Global canvas
 var errorCounter = 0;       // XHR load errors
-const cw = 1000;            // canvas width
-const ch = 600;             // canvas height
-const cwMin = 70;           // canvas width minimum (counting labels)
-const cwMax = cw;           // canvas width max
-const slSpacing = 30;       // swim lane spacing
-const abHeight = 20;        // active bar height
+const cw = 1000;            // Canvas width
+const ch = 600;             // Canvas height
+const cwMin = 70;           // Canvas width minimum (counting labels)
+const cwMax = cw;           // Canvas width max
+const slSpacing = 30;       // Swimlane spacing
+const abHeight = 20;        // Active bar height
 const req = new XMLHttpRequest();
 
+// Colors
 const barColorRed = "#bb0000";              // Stop and Remain / Stop then Proceed
 const barColorGreen = "#00cc00";            // Permissive/Protected Movement Allowed
 const barColorAmber = "#ecf013";            // Permissive/Protected Clearance
 const barColorRedAmber = "#edad18";         // PreMovement
 const barColorGray = "#a0a0a0";             // Unknown state
 const cursorLineColor = "#c0c0c0";
+const marker1LineColor = "#0373fc";
+const marker2LineColor = "#c203fc";
 
+// Run-time variables
 var timeScale = 20;        // pixels per second
 var startTime = 0;
 var endTime = 0;
 var maxTimeInWindow = 0;
-
 var programPhase = 0;
-
 const cursor =
 {
     x: 0,
     y: 0
 };
+var marker1X = 0;
+var marker2X = 0;
+var markerSel = 0;
+
+
 
 function clearCanvas(ctx)
 {
@@ -143,6 +152,14 @@ function decreaseTimeScale()
 
 function drawFrame(ctx, config)
 {
+    var tooltip = 
+    {
+        draw: false,
+        x: 0,
+        y: 0,
+        text: ""
+    };
+
     // Update internal values
     startTime = Date.now() - ((cwMax - cwMin) * timeScale);
     endTime = Date.now();
@@ -154,6 +171,7 @@ function drawFrame(ctx, config)
     // Draw bars
     state["bars"].forEach(function(bar) {
         var doNotDraw = false;
+
         if(bar["type"] == 0 || bar["type"] == 1)
         {
             col = barColorGray;
@@ -206,18 +224,42 @@ function drawFrame(ctx, config)
             if(getCursorViewPosition().ypos == getSwimlaneForItem(bar["name"]) && cursor.x >= startX && cursor.x <= endX)
             {
                 duration = (bar["end"] - bar["start"]) / 1000;
-                drawTooltip(ctx, cursor.x + 10, cursor.y + 10, "Signal group " + bar["name"] + " (" + SG(bar["type"]) + " for " + duration + " s)");
+                tooltip.draw = true;
+                tooltip.x = cursor.x + 10;
+                tooltip.y = cursor.y + 10;
+                tooltip.text = bar["name"] + ": " + SG(bar["type"]) + " (" + duration + " s)";
             }
         }
     });
 
+    if(tooltip.draw)
+    {
+        drawTooltip(ctx, tooltip.x, tooltip.y, tooltip.text);
+    }
+
     // Draw a vertical line where the mouse cursor is
     if(cursor.x > cwMin && cursor.x < cwMax && cursor.y < ch)
     {
-        curpos = getCursorViewPosition();
-        document.getElementById("cursorlocation").innerHTML = cursor.x + " / " + formatUXTime(curpos.xpos) + " x " + curpos.ypos;
+        if(debugEnable)
+        {
+            curpos = getCursorViewPosition();
+            document.getElementById("cursorlocation").innerHTML = cursor.x + " / " + formatUXTime(curpos.xpos) + " x " + curpos.ypos;
+        }
         drawLine(ctx, cursor.x, 0, cursor.x, cw - 1, cursorLineColor);
         drawLine(ctx, cwMin, cursor.y, cwMax - 1, cursor.y, cursorLineColor);
+    }
+
+    // Draw markers
+    if(markerSel > 0)
+    {
+        if(marker1X > cwMin && marker1X < cwMax)
+        {
+            drawLine(ctx, marker1X, 0, marker1X, cw - 1, marker1LineColor);
+        }
+        if(marker2X > cwMin && marker2X < cwMax)
+        {
+            drawLine(ctx, marker2X, 0, marker2X, cw - 1, marker2LineColor);
+        }
     }
 
     // XHR load error tracking
@@ -233,12 +275,15 @@ function drawFrame(ctx, config)
         document.getElementById("statecontents").innerHTML += "<tr><td>" + bar["name"] + "</td><td>" + SG(bar["type"]) + "</td><td>" + formatUXTime(bar["start"]) + "</td><td>" + formatUXTime(bar["end"]) + "</td><td>" + duration + "</td>"
     });
 
-    // Update debug table
-    document.getElementById("starttime").innerHTML = formatUXTime(startTime);
-    document.getElementById("endtime").innerHTML = formatUXTime(endTime);
-    document.getElementById("timescale").innerHTML = timeScale + " px/s";
-    document.getElementById("maxtimeinwindow").innerHTML = maxTimeInWindow + " s";
-    document.getElementById("programphase").innerHTML = programPhase;
+    if(debugEnable)
+    {
+        // Update debug table
+        document.getElementById("starttime").innerHTML = formatUXTime(startTime);
+        document.getElementById("endtime").innerHTML = formatUXTime(endTime);
+        document.getElementById("timescale").innerHTML = timeScale + " px/s";
+        document.getElementById("maxtimeinwindow").innerHTML = maxTimeInWindow + " s";
+        document.getElementById("programphase").innerHTML = programPhase;
+    }
 }
 
 function formatUXTime(uxtime)
@@ -261,8 +306,21 @@ function getSwimlaneForItem(name)
     return -1;
 }
 
-/* SG state to string */
 function SG(state)
+{
+    if(config["state_type"] == "SPaT")
+    {
+        return SG_SPaT(state);
+    } else if(config["state_type"] == "ISGS")
+    {
+        return SG_ISGS(state);
+    } else {
+        return SG_SPaT(state);
+    }
+}
+
+/* SG state to string, SPaT indices */
+function SG_SPaT(state)
 {
     if(state == 0) { return "Unavailable"; }
     if(state == 1) { return "Dark"; }
@@ -276,6 +334,35 @@ function SG(state)
     if(state == 9) { return "CautionConflictingTraffic"; }
     if(state == 10) { return "PermissiveMovementPreClearance"; }
     if(state == 11) { return "ProtectedMovementPreClearance"; }
+    return "Unknown (" + state + ")"
+}
+
+/* SG state to string, ISGS indices */
+function SG_ISGS(state)
+{
+    if(state == 0) { return "Passive Red"; }
+    if(state == 1) { return "Red Request"; }
+    if(state == 2) { return "Red Wait"; }
+    if(state == 3) { return "Red Stop"; }
+    if(state == 4) { return "Intergreen/Start Delay"; }
+    if(state == 5) { return "Red Privilege"; }
+    if(state == 6) { return "Red Priority"; }
+    if(state == 7) { return "Red Clearance Interval"; }
+    if(state == 8) { return "Minimum Red"; }
+    if(state == 9) { return "VA Minimum Red"; }
+    if(state == 10) { return "Red Synchornization"; }
+    if(state == 12) { return "Red/Amber"; }
+    if(state == 13) { return "Passive Green"; }
+    if(state == 14) { return "Minimum Green"; }
+    if(state == 15) { return "Green Extension"; }
+    if(state == 16) { return "Green Extension LCO"; }
+    if(state == 17) { return "Fixed Past-End Green"; }
+    if(state == 18) { return "VA Past-End Green"; }
+    if(state == 19) { return "Green Blinking"; }
+    if(state == 20) { return "VA Minimum Green"; }
+    if(state == 21) { return "Fixed Amber"; }
+    if(state == 22) { return "VA Amber"; }
+    if(state == 23) { return "Amber Flashing"; }
     return "Unknown (" + state + ")"
 }
 
@@ -346,10 +433,33 @@ function getCursorViewPosition()
     return { 'xpos': xpos, 'ypos': ypos };
 }
 
+// Cursor movement tracking
 addEventListener("mousemove", (e) =>
 {
     cursor.x = e.clientX - cnvs.getBoundingClientRect().left;
     cursor.y = e.clientY - cnvs.getBoundingClientRect().top;
+});
+
+// Mouse clicking tracking
+addEventListener("click", (e) =>
+{
+    markerSel++;
+    if(markerSel == 3)
+    {
+        markerSel = 1;
+    }
+    if(markerSel == 1)
+    {
+        marker1X = cursor.x;
+    }
+    if(markerSel == 2)
+    {
+        marker2X = cursor.x;
+    }
+    marker1Pos = (marker1X - cwMin) / (cwMax - cwMin) * (endTime - startTime) + startTime;
+    marker2Pos = (marker2X - cwMin) / (cwMax - cwMin) * (endTime - startTime) + startTime;
+    markerDiff = Math.abs(marker1Pos - marker2Pos) / 1000;
+    console.log("Marker difference: " + markerDiff);
 });
 
 window.onload = function() {
