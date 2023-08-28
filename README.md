@@ -18,3 +18,6 @@ SPaT: [Signal Phase and Timing](https://www.crow.nl/downloads/pdf/verkeer-en-ver
 
 ## Acknowledgements
 This project has been supported by my employer [Solita Oy](https://github.com/solita).
+
+## Screenshot
+![Alt text](/screenshot_28-08-23.png?raw=true "Screenshot")
