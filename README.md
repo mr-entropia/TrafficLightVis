@@ -8,13 +8,17 @@ In the beginning of the `traffiglightvis.js` file, configure addresses for setup
 
 ## Inner workings
 ### Setup
-Setup is a JSON object which contains data about the signal groups and detectors (their name). Without this object, TrafficLightVis is unable to work.
+Setup is a JSON object which contains data about the signal groups and detectors (their name). Without this object, TrafficLightVis is unable to work. The object also contains information regarding state type, `state_type`, which tells if state data is SPaT (Signal Phase and Timing) or ISGS (Internal Signal Group State).
 
 ### State
-State is a JSON object which contains `starttime`, `endtime`, `swimlane` and `type` information for all bars present in the graph. If `starttime` is equal to or larger than current time (`Date.now()`), then the bar will be ignored. If `endtime` is equal to or larger than current time, bar will be drawn up to the right border. `swimlane` defines on which swimlane this bar will be drawn on. `type` tells the SPaT state (see references) of the signal group. If it is a detector, we don't care about type.
+State is a JSON object which contains `starttime`, `endtime`, `swimlane` and `type` information for all bars present in the graph. If `starttime` is equal to or larger than current time (`Date.now()`), then the bar will be ignored. If `endtime` is equal to or larger than current time, bar will be drawn up to the right border. `swimlane` defines on which swimlane this bar will be drawn on. `type` tells the SPaT state (see references) or the ISGS of the signal group. If it is a detector, we don't care about type.
 
 ## References
 SPaT: [Signal Phase and Timing](https://www.crow.nl/downloads/pdf/verkeer-en-vervoer/verkeersmanagement/landelijke-ivri-standaarden/d3046-2_spat-profile.aspx), Level 3.1
+ISGS: See source code
 
 ## Acknowledgements
 This project has been supported by my employer [Solita Oy](https://github.com/solita).
+
+## Screenshot
+![Alt text](/screenshot_28-08-23.png?raw=true "Screenshot")
