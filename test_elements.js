@@ -106,26 +106,28 @@ function updateElements()
 
     // Draw timing elements
     state["bars"].forEach(function(bar) {
-        duration = (bar["end"] - bar["start"]) / 1000;
-        innerText = duration + " s";
-        tooltipText = bar["name"] + " " + SG(bar["type"]) + " for " + duration + " s";
-        yPos = 20 + (swimlanes.indexOf(bar["name"]) * 30);
+        if(bar["type"] != 3) {
+            duration = (bar["end"] - bar["start"]) / 1000;
+            innerText = duration + " s";
+            tooltipText = bar["name"] + " " + SG(bar["type"]) + " for " + duration + " s";
+            yPos = 20 + (swimlanes.indexOf(bar["name"]) * 30);
 
-        startX = document.getElementById("visarea").clientWidth - Math.round((((endTime - bar["start"]) / 1000) * timeScale))
-        if(bar["end"] < startTime)
-        {
-            //console.log("if");
-            endX = document.getElementById("visarea").clientWidth - Math.round((((endTime - bar["end"]) / 1000) * timeScale))
-        } else {
-            console.log("else: " + bar["end"] + " > " + startTime);
-            endX = document.getElementById("visarea").clientWidth;
-        }
+            startX = document.getElementById("visarea").clientWidth - Math.round((((endTime - bar["start"]) / 1000) * timeScale))
+            if(bar["end"] < startTime)
+            {
+                //console.log("if");
+                endX = document.getElementById("visarea").clientWidth - Math.round((((endTime - bar["end"]) / 1000) * timeScale))
+            } else {
+                //console.log("else: " + bar["end"] + " > " + startTime);
+                endX = document.getElementById("visarea").clientWidth;
+            }
 
-        if (endX > -10)
-        {
-            console.log(startX + " -- " + endX);
-            placeElement("timing", SG_SPaT_type(bar["type"]), startX, endX, yPos, innerText, tooltipText);
-            console.log(" ");
+            if (endX > -10)
+            {
+                //console.log(startX + " -- " + endX);
+                placeElement("timing", SG_SPaT_type(bar["type"]), startX, endX, yPos, innerText, tooltipText);
+                //console.log(" ");
+            }
         }
     });
 
@@ -207,122 +209,6 @@ function placeElement(type, style, start_x, end_x, y_pos, text1, text2)
     }
 }
 
-function drawFrame(ctx, config)
-{
-    var tooltip = 
-    {
-        draw: false,
-        x: 0,
-        y: 0,
-        text: ""
-    };
-
-    // Update internal values
-    startTime = Date.now() - ((cwMax - cwMin) * timeScale);
-    endTime = Date.now();
-    maxTimeInWindow = ((cwMax - cwMin) / timeScale);
-
-    // Draw view
-    drawBase(ctx, config);
-
-    // Draw bars
-    state["bars"].forEach(function(bar) {
-        var doNotDraw = false;
-
-        if(bar["type"] == 0 || bar["type"] == 1)
-        {
-            col = barColorGray;
-        }
-        else if(bar["type"] == 2 || bar["type"] == 3)
-        {
-            doNotDraw = true;
-        }
-        else if(bar["type"] == 4)
-        {
-            col = barColorRedAmber;
-        }
-        else if(bar["type"] == 5 || bar["type"] == 6)
-        {
-            col = barColorGreen;
-        }
-        else if(bar["type"] == 7 || bar["type"] == 8)
-        {
-            col = barColorAmber;
-        }
-        else
-        {
-            col = barColorGray;
-        }
-        if(bar["start"] <= endTime)
-        {
-            startX = cwMax - Math.round((((endTime - bar["start"]) / 1000) * timeScale))
-            if(bar["end"] < startTime)
-            {
-                endX = cwMax - Math.round((((endTime - bar["end"]) / 1000) * timeScale))
-            }
-            else
-            {
-                endX = cwMax;
-            }
-            if(startX <= cwMin)
-            {
-                startX = cwMin;
-            }
-            if(endX <= cwMin)
-            {
-                endX = cwMin;
-            }
-
-            if(!doNotDraw)
-            {
-                drawActiveBar(ctx, getSwimlaneForItem(bar["name"]), startX, endX, col);
-            }
-
-            if(getCursorViewPosition().ypos == getSwimlaneForItem(bar["name"]) && cursor.x >= startX && cursor.x <= endX)
-            {
-                duration = (bar["end"] - bar["start"]) / 1000;
-                tooltip.draw = true;
-                tooltip.x = cursor.x + 10;
-                tooltip.y = cursor.y + 10;
-                tooltip.text = bar["name"] + ": " + SG(bar["type"]) + " (" + duration + " s)";
-            }
-        }
-    });
-
-    // Draw a vertical line where the mouse cursor is
-    if(cursor.x > cwMin && cursor.x < cwMax && cursor.y < ch)
-    {
-        if(debugEnable)
-        {
-            curpos = getCursorViewPosition();
-            document.getElementById("cursorlocation").innerHTML = cursor.x + " / " + formatUXTime(curpos.xpos) + " x " + curpos.ypos;
-        }
-        document.getElementById("vertical-cursor").style = "left: " + cursor.x;
-    }
-
-    // XHR load error tracking
-    if(errorCounter > 5)
-    {
-        console.log("Error loading state! Stale data!");
-    }
-
-    // Update state table
-    document.getElementById("statecontents").innerHTML = "";
-    state["bars"].forEach(function(bar) {
-        duration = (bar["end"] - bar["start"]) / 1000;
-        document.getElementById("statecontents").innerHTML += "<tr><td>" + bar["name"] + "</td><td>" + SG(bar["type"]) + "</td><td>" + formatUXTime(bar["start"]) + "</td><td>" + formatUXTime(bar["end"]) + "</td><td>" + duration + "</td>"
-    });
-
-    if(debugEnable)
-    {
-        // Update debug table
-        document.getElementById("starttime").innerHTML = formatUXTime(startTime);
-        document.getElementById("endtime").innerHTML = formatUXTime(endTime);
-        document.getElementById("timescale").innerHTML = timeScale + " px/s";
-        document.getElementById("maxtimeinwindow").innerHTML = maxTimeInWindow + " s";
-        document.getElementById("programphase").innerHTML = programPhase;
-    }
-}
 
 function formatUXTime(uxtime)
 {
@@ -434,7 +320,7 @@ function updateState(e)
             console.log("Received first state JSON object");
 
             // Set up interval functions such as drawing and updating state object
-            setInterval(drawFrame, 33, config);        
+            setInterval(updateElements, 33);        
             setInterval(periodicUpdateState, 1000);
             programPhase++;
         }
@@ -487,8 +373,6 @@ addEventListener("mousemove", (e) =>
     endTime = Date.now();
     maxTimeInWindow = document.getElementById("visarea").clientWidth / timeScale;
 
-    
-
     document.getElementById("window-width").innerHTML = document.getElementById("visarea").clientWidth + " px";
     document.getElementById("cursor-location").innerHTML = "X: " + cursor.x + " Y: " + cursor.y;
 });
@@ -509,10 +393,12 @@ window.onload = function() {
     document.getElementById("dec-timescale").onclick = decreaseTimeScale;
 
     // Start the ball rolling
-    //getSetup();
+    getSetup();
 
+    /*
     state = generateBar();
     updateElements();
     setInterval(updateElements, 33);
+    */
 
 };
