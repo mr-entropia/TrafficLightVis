@@ -69,6 +69,7 @@ div.timing-element {
     text-align: center;
     height: 20px;
     opacity: 0.9;
+    /*overflow: hidden;*/
 }
 
 div.label-element {
@@ -86,26 +87,26 @@ div.red-bar {
 
 div.amber-bar {
     border: 1px solid #9e5f00;
-    background-color: #ff9900;
-    color: #ffffff;
+    background-color: #ffd000;
+    color: #000000;
 }
 
 div.black-amber-bar {
     border: 1px solid #9e5f00;
-    background: linear-gradient(#000000 50%, #ff9900 50%);
+    background: linear-gradient(#000000 50%, #ffd000 50%);
     color: #ffffff;
 }
 
 div.red-amber-bar {
     border: 1px solid #9e5f00;
-    background: linear-gradient(#ff0000 50%, #ff9900 50%);
-    color: #ffffff;
+    background: linear-gradient(#ff0000 50%, #ffd000 50%);
+    color: #000000;
 }
 
 div.green-bar {
     border: 1px solid #0da000;
     background-color: #13e200;
-    color: #ffffff;
+    color: #000000;
 }
 
 div.black-green-bar {
@@ -123,6 +124,12 @@ div.blue-bar {
 div.gray-bar {
     border: 1px solid #313131;
     background-color: #808080;
+    color: #ffffff;
+}
+
+div.dark-gray-bar {
+    border: 1px solid #313131;
+    background-color: #424242;
     color: #ffffff;
 }
 

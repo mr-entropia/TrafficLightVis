@@ -31,6 +31,11 @@ var marker1X = 0;
 var marker2X = 0;
 var markerSel = 0;
 
+function roundWithDecimals(number, numDecimals)
+{
+    return number.toFixed(numDecimals);
+    //return Math.round(number * 10) / 10;
+}
 
 
 function generateBar()
@@ -81,7 +86,6 @@ function decreaseTimeScale()
 function updateElements()
 {
     // Variables for calculations
-    endTime = Date.now() - (document.getElementById("visarea").clientWidth * timeScale);
     startTime = Date.now();
     maxTimeInWindow = document.getElementById("visarea").clientWidth / timeScale;
 
@@ -106,38 +110,33 @@ function updateElements()
 
     // Draw timing elements
     state["bars"].forEach(function(bar) {
-        if(bar["type"] != 3) {
-            duration = (bar["end"] - bar["start"]) / 1000;
-            innerText = duration + " s";
-            tooltipText = bar["name"] + " " + SG(bar["type"]) + " for " + duration + " s";
-            yPos = 20 + (swimlanes.indexOf(bar["name"]) * 30);
+        if(bar["start"] < startTime)
+        {
+            if(bar["type"] != 3) {
+                duration = (bar["end"] - bar["start"]) / 1000;
+                yPos = 20 + (swimlanes.indexOf(bar["name"]) * 30);
 
-            startX = document.getElementById("visarea").clientWidth - Math.round((((endTime - bar["start"]) / 1000) * timeScale))
-            if(bar["end"] < startTime)
-            {
-                //console.log("if");
-                endX = document.getElementById("visarea").clientWidth - Math.round((((endTime - bar["end"]) / 1000) * timeScale))
-            } else {
-                //console.log("else: " + bar["end"] + " > " + startTime);
-                endX = document.getElementById("visarea").clientWidth;
-            }
+                durationMs = (startTime - (startTime - (maxTimeInWindow * 1000)));
+                startX = (1 - ((startTime - bar["start"]) / durationMs)) * document.getElementById("visarea").clientWidth;
 
-            if (endX > -10)
-            {
-                //console.log(startX + " -- " + endX);
-                placeElement("timing", SG_SPaT_type(bar["type"]), startX, endX, yPos, innerText, tooltipText);
-                //console.log(" ");
+                if(bar["end"] > 1 && bar["end"] < startTime)
+                {
+                    endX = (1 - ((startTime - bar["end"]) / durationMs)) * document.getElementById("visarea").clientWidth;
+                } else {
+                    duration = (startTime - bar["start"]) / 1000;
+                    endX = document.getElementById("visarea").clientWidth;
+                }
+
+                innerText = roundWithDecimals(duration, 1) + " s";
+                tooltipText = bar["name"] + " " + SG(bar["type"]) + " for " + roundWithDecimals(duration, 2) + " s";
+
+                if (endX > -10)
+                {
+                    placeElement("timing", SG_SPaT_type(bar["type"]), startX, endX, yPos, innerText, tooltipText);
+                }
             }
         }
     });
-
-
-    /*
-    placeElement("swimlane", "swimlane-sg", 0, 0, 110, "A", "");
-    placeElement("swimlane", "swimlane-others", 0, 0, 210, "B50", "");
-    placeElement("timing", "green-bar", 100, 300, 100, "this is a test", "tooltip text");
-    */
-
     
     // XHR load error tracking
     if(errorCounter > 5)
@@ -208,7 +207,6 @@ function placeElement(type, style, start_x, end_x, y_pos, text1, text2)
         document.getElementById("visarea").appendChild(label_element);
     }
 }
-
 
 function formatUXTime(uxtime)
 {
@@ -309,7 +307,7 @@ function updateState(e)
     {
         if(programPhase == 0)
         {
-            console.log("Received setup JSON object");
+            //console.log("Received setup JSON object");
             config = JSON.parse(this.responseText);
             programPhase++;
             periodicUpdateState();
@@ -317,10 +315,11 @@ function updateState(e)
         else if(programPhase == 1)
         {
             state = JSON.parse(this.responseText);
+            //state = generateBar();
             console.log("Received first state JSON object");
 
             // Set up interval functions such as drawing and updating state object
-            setInterval(updateElements, 33);        
+            setInterval(updateElements, 50);
             setInterval(periodicUpdateState, 1000);
             programPhase++;
         }
@@ -344,23 +343,6 @@ function periodicUpdateState()
     req.send();
 }
 
-function getCursorViewPosition()
-{
-    // xpos returns time inside view
-    // ypos returns swimlane index
-    xpos = (cursor.x - cwMin) / (cwMax - cwMin) * (startTime - endTime) + endTime;
-    ypos = 0;
-    for(let i = 0; i < 20; i++)
-    {
-        testpos = Math.abs(cursor.y - (slSpacing * (i)));
-        if(testpos < 15)
-        {
-            ypos = i;
-        }
-    }
-    return { 'xpos': xpos, 'ypos': ypos };
-}
-
 // Cursor movement tracking
 addEventListener("mousemove", (e) =>
 {
@@ -380,7 +362,7 @@ addEventListener("mousemove", (e) =>
 // Mouse clicking tracking
 addEventListener("click", (e) =>
 {
-    console.log("Cursor: " + cursor.x + " x " + cursor.y);
+    //console.log("Cursor: " + cursor.x + " x " + cursor.y);
 });
 
 window.onload = function() {
@@ -394,11 +376,4 @@ window.onload = function() {
 
     // Start the ball rolling
     getSetup();
-
-    /*
-    state = generateBar();
-    updateElements();
-    setInterval(updateElements, 33);
-    */
-
 };
